@@ -208,11 +208,11 @@ def get_date_time_from_text(text):
                 date, time = get_today_date(), get_now_time()
                 return date, time
             if dates[0].lower() == TOMORROW.lower():
-                date, time = get_next_date(), get_now_time()
-                return date, time
+                date = get_next_date()
 
 
-    date = format_date(dates[0]) if dates else get_today_date()
+    if not date:
+        date = format_date(dates[0]) if dates else get_today_date()
     # date = format_date(date)
    
     time = format_time(times[0]) if times else get_one_hour_after()
