@@ -123,6 +123,7 @@ def format_date(date):
     return formatted_date
 
 def get_end_time(date, time, length_of_meet):
+    print(date, time, "end")
     end_time = datetime.strptime("{}T{}".format(date, time), date_time_format) + timedelta(hours = length_of_meet)
     end_time = end_time.strftime(date_time_format)
     return end_time
@@ -152,11 +153,13 @@ def get_date_time_from_text(text):
     dates = re.findall(date_regex, text)
     times = re.findall(time_regex, text)
 
-    date = dates[0] if dates else get_today_date()
-    date = format_date(date)
+    date = format_date(dates[0]) if dates else get_today_date()
+    # date = format_date(date)
    
-    time = times[0] if times else get_one_hour_after()
-    time = format_time(time)
+    time = format_time(times[0]) if times else get_one_hour_after()
+    # time = format_time(time)
+
+    print("start", dates, times, date, time, get_today_date(), get_one_hour_after())
 
     return date, time
 
@@ -166,7 +169,7 @@ def get_length_from_text(text):
 
     length = lengths[0] if lengths else 60 # (in mins)
 
-    if not length.isnumeric():
+    if not str(length).isnumeric():
         length = ""
     else:
         length = int(length) / float(60)
@@ -199,6 +202,7 @@ def get_summary_from_text(text):
     return summary
 
 def create_meet_from_text(text, sender_id, client):
+    error = False
     users, sender = get_users_from_text(text, sender_id, client)
 
     date, time = get_date_time_from_text(text)
@@ -206,6 +210,11 @@ def create_meet_from_text(text, sender_id, client):
 
     length_of_meet = get_length_from_text(text)
     # Handle empty length
+
+    error = not date or not time or not length_of_meet
+
+    if error:
+        return
 
     end_time = get_end_time(date, time, length_of_meet)
 

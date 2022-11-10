@@ -19,7 +19,15 @@ def verify(event):
 
 @app.event("app_mention")
 def introduce(event, say):
-    say("Hello user")
+    text = """
+        You can use /create to create a new calendar event.
+        You can tag users in the workspace to add them to the invite list.
+        Standard format /create @user1 @user2 d=10112022 (or 101122 for 10 Nov 2022) t=1045 l=45 (length of meeting in minutes) s="Your meeting title".
+        In case no date and time is specified, todays' date and time after 1 hour is taken into account.
+        In case length is not specified, it is assumed to be 60 minutes.
+        In case no title is specified, a default title is assumed
+    """
+    say(text)
 
 @app.command("/create")
 def create(ack, respond, command):
