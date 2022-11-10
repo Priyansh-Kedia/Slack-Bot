@@ -2,6 +2,8 @@ import re
 
 from datetime import date, datetime, timedelta
 import os.path
+from dateutil.tz import tz
+from zoneinfo import ZoneInfo
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -18,27 +20,29 @@ class User:
         self.timeZone = timeZone
 
 class MeetInfo:
-    def __init__(self, summary, sender, users, date, time, end_time, timeZone):
+    def __init__(self, summary, sender, users, start_date_utc, end_date_utc, timeZone):
         self.summary = summary
         self.sender = sender
         self.users = users
-        self.date = date
-        self.time = time
-        self.end_time = end_time
+        self.start_date_utc = start_date_utc
+        self.end_date_utc = end_date_utc
         self.timeZone = timeZone
 
 def send_meet_invites(meet_info):
     creds = authenticate()
     service = build('calendar', 'v3', credentials=creds)
 
+    attendees = []
     users = meet_info.users
     sender = meet_info.sender
     timeZone = meet_info.timeZone
-    dateTime = "{}T{}".format(meet_info.date, meet_info.time)
-    endTime = meet_info.end_time 
+    dateTime = meet_info.start_date_utc
+    endTime = meet_info.end_date_utc
     
     for user in users:
         attendees.append({'email': user.email})
+
+    print(meet_info.summary, dateTime, timeZone, endTime, attendees)
 
     event = {
         'summary': meet_info.summary,
@@ -108,9 +112,9 @@ def format_date(date):
 
     if is_numeric:
         if len(date) == 6:
-            formatted_date = "{}-{}-20{}".format(date[0:2], date[2:4], date[4:])
+            formatted_date = "20{}-{}-{}".format(date[4:], date[2:4], date[0:2])
         elif len(date) == 8:
-            formatted_date = "{}-{}-{}".format(date[0:2], date[2:4], date[4:])
+            formatted_date = "{}-{}-{}".format(date[4:], date[2:4], date[0:2])
         else:
             formatted_date = ""
     else:
@@ -147,14 +151,13 @@ def get_date_time_from_text(text):
 
     dates = re.findall(date_regex, text)
     times = re.findall(time_regex, text)
-    print("dates", dates, times)
+
     date = dates[0] if dates else get_today_date()
     date = format_date(date)
    
     time = times[0] if times else get_one_hour_after()
     time = format_time(time)
 
-    print(date, time)
     return date, time
 
 def get_length_from_text(text):
@@ -178,16 +181,25 @@ def get_time_zone_from_text(text):
 
     return timeZone
 
+def get_time_in_utc(time_):
+    local_tz = tz.tzlocal()
+    utc_tz = ZoneInfo("UTC")
+    time_ = datetime.strptime(time_, date_time_format)
+    time_ = time_.replace(tzinfo = local_tz)
+    time_utc = time_.astimezone(utc_tz)
+
+    return time_utc.strftime(date_time_format)
+
 def get_summary_from_text(text):
-    summary_regex = r's=(\w+)'
-    summaries = re.findall(summary_regex, text)
+    summary_regex = 's="(.*?)"'
+    summaries = re.search(summary_regex, text)
 
-    # summary = summaries[0] if timeZones else "Meeting"
-
+    summary = summaries.group(1) if summaries else "Meeting"
+    print(summary)
     return summary
 
 def create_meet_from_text(text, sender_id, client):
-    # users, sender = get_users_from_text(text, sender_id, client)
+    users, sender = get_users_from_text(text, sender_id, client)
 
     date, time = get_date_time_from_text(text)
     # handle case of date or time to be empty
@@ -197,8 +209,9 @@ def create_meet_from_text(text, sender_id, client):
 
     end_time = get_end_time(date, time, length_of_meet)
 
-    # timeZone = get_time_zone_from_text(text)
-    # summary = get_summary_from_text(text)
-    # meet_info = MeetInfo(summary, sender, users, date, time, end_time, timeZone)
-    # send_meet_invites(meet_info)
+    start_date_utc, end_date_utc = get_time_in_utc("{}T{}".format(date, time)), get_time_in_utc(end_time)
+    timeZone = "Africa/Abidjan"
+    summary = get_summary_from_text(text)
+    meet_info = MeetInfo(summary, sender, users, start_date_utc, end_date_utc, timeZone)
+    send_meet_invites(meet_info)
 
