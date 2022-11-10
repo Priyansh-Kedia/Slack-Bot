@@ -7,7 +7,7 @@ from threading import Thread
 from utils import create_meet_from_text
 
 # export SLACK_SIGNING_SECRET=819fa6c9a00498c631089b016cd5b8ac
-# export SLACK_BOT_TOKEN=xoxb-4356365653585-4329303865415-6B33dNrEZiJJ03pNMYOmf50N
+# export SLACK_BOT_TOKEN=xoxb-4356365653585-4329303865415-rr65Ri2X9QkQenaSHlKxkNQB
 app = App()
 
 # Add functionality here
