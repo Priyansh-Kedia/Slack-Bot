@@ -34,7 +34,8 @@ def create(ack, respond, command):
     ack()
     text = command['text']
     sender_id = command["user_id"]
-    daemon = Thread(target = create_meet_from_text, args = (text, sender_id, app.client, respond, ), daemon=True)
+    channel_id = command["channel_id"]
+    daemon = Thread(target = create_meet_from_text, args = (text, sender_id, app.client, respond, channel_id), daemon=True)
     daemon.start()
     respond("Event will be created shortly!")
 

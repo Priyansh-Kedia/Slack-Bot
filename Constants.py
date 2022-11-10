@@ -7,3 +7,5 @@ TOMORROW = "tom"
 NOW = "now"
 
 date_time_variations = [NOW, TOMORROW]
+
+CHANNEL = "<!channel>"

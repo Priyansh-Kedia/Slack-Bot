@@ -89,26 +89,46 @@ def get_users_info(client, sender_id, user_ids):
     sender = None
     try:
         for user_id in user_ids:
-            user = client.users_info(user = user_id)['user']
-            user_obj = User(user["profile"]["email"], user["tz"], user['name'], user_id)
-            users.append(user_obj)
+            try:
+                user = client.users_info(user = user_id)['user']
+                user_obj = User(user["profile"]["email"], user["tz"], user['name'], user_id)
+                users.append(user_obj)
 
-            if user["id"] == sender_id:
-                sender = user_obj
+                if user["id"] == sender_id:
+                    sender = user_obj
+            except Exception as e:
+                print(e)
 
-    except e as Exception:
+    except Exception as e:
         print("Get user info threw exception {}".format(e))
     print(users)
     # send_meet_invites(users, sender)
 
     return users, sender
 
+def get_all_users_in_channel(client, channel_id):
+    user_ids = []
+    response = client.conversations_members(channel = channel_id)
+    user_ids.extend(response['members'])
 
-def get_users_from_text(text, sender_id, client):
+    next_cursor = response['response_metadata']['next_cursor']
+
+    while next_cursor:
+        response = client.conversations_members(channel = next_cursor)
+        user_ids.extend(response['members'])
+        next_cursor = response['response_metadata']['next_cursor']
+
+    return user_ids
+
+def get_users_from_text(text, sender_id, client, channel_id):
     at_regex = r'@(\w+)'
-    user_ids = re.findall(at_regex, text)
-    user_ids.append(sender_id)
-    user_ids = list(set(user_ids))
+    
+    if CHANNEL in text:
+        user_ids = get_all_users_in_channel(client, channel_id) 
+    else:
+        user_ids = re.findall(at_regex, text)
+        user_ids.append(sender_id)
+        user_ids = list(set(user_ids))
 
     users, sender = get_users_info(client, sender_id, user_ids)
 
@@ -240,9 +260,9 @@ def get_summary_from_text(text):
     print(summary)
     return summary
 
-def create_meet_from_text(text, sender_id, client, respond):
+def create_meet_from_text(text, sender_id, client, respond, channel_id):
     error = False
-    users, sender = get_users_from_text(text, sender_id, client)
+    users, sender = get_users_from_text(text, sender_id, client, channel_id)
 
     date, time = get_date_time_from_text(text)
     # handle case of date or time to be empty
