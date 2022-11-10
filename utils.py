@@ -4,6 +4,8 @@ from datetime import date, datetime, timedelta
 import os.path
 from dateutil.tz import tz
 from zoneinfo import ZoneInfo
+import random
+import string
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -15,9 +17,11 @@ from quickstart import authenticate
 from Constants import *
 
 class User:
-    def __init__(self, email, timeZone):
+    def __init__(self, email, timeZone, name, id):
         self.email = email
         self.timeZone = timeZone
+        self.name = name
+        self.id = id
 
 class MeetInfo:
     def __init__(self, summary, sender, users, start_date_utc, end_date_utc, timeZone):
@@ -28,10 +32,14 @@ class MeetInfo:
         self.end_date_utc = end_date_utc
         self.timeZone = timeZone
 
+def generate_random_string(n = 10):
+    res = ''.join(random.choices(string.ascii_uppercase + string.digits, k = n))
+
+    return res
+
 def send_meet_invites(meet_info):
     creds = authenticate()
     service = build('calendar', 'v3', credentials=creds)
-
     attendees = []
     users = meet_info.users
     sender = meet_info.sender
@@ -61,12 +69,19 @@ def send_meet_invites(meet_info):
                 {'method': 'email', 'minutes': 24 * 60},
                 {'method': 'popup', 'minutes': 10}
             ]
+        },
+        "conferenceData": {
+            "createRequest": {
+                "requestId": generate_random_string(), "conferenceSolutionKey": {"type": "hangoutsMeet"}
+            }
         }
     }
 
-    event = service.events().insert(calendarId='primary', body=event).execute()
+
+    event = service.events().insert(calendarId='primary', sendNotifications = True, sendUpdates="all", supportsAttachments = True, body=event, conferenceDataVersion=1).execute()
     print('Event created: %s' % (event.get('htmlLink')))
 
+    return event.get('htmlLink')
 
 
 def get_users_info(client, sender_id, user_ids):
@@ -75,7 +90,7 @@ def get_users_info(client, sender_id, user_ids):
     try:
         for user_id in user_ids:
             user = client.users_info(user = user_id)['user']
-            user_obj = User(user["profile"]["email"], user["tz"])
+            user_obj = User(user["profile"]["email"], user["tz"], user['name'], user_id)
             users.append(user_obj)
 
             if user["id"] == sender_id:
@@ -104,6 +119,14 @@ def get_today_date():
     date_in_format = today.strftime(date_format)
 
     return date_in_format
+
+def get_next_date(n = 1):
+    today = date.today()
+
+    next_date = today + timedelta(days = n)
+    next_date_in_format = next_date.strftime(date_format)
+
+    return next_date_in_format
 
 def format_date(date):
     formatted_date = ""
@@ -146,12 +169,28 @@ def get_one_hour_after(n = 1):
     formatted_time = future_time.strftime(time_format)
     return formatted_time
 
+def get_now_time():
+    current_time = datetime.now()
+
+    formatted_time = current_time.strftime(time_format)
+    return formatted_time
+
 def get_date_time_from_text(text):
     date_regex = r'd=(\w+)'
     time_regex = r't=(\w+)'
 
     dates = re.findall(date_regex, text)
     times = re.findall(time_regex, text)
+
+    if dates:
+        for date_variation in date_time_variations:
+            if dates[0].lower() == NOW.lower():
+                date, time = get_today_date(), get_now_time()
+                return date, time
+            if dates[0].lower() == TOMORROW.lower():
+                date, time = get_next_date(), get_now_time()
+                return date, time
+
 
     date = format_date(dates[0]) if dates else get_today_date()
     # date = format_date(date)
@@ -201,7 +240,7 @@ def get_summary_from_text(text):
     print(summary)
     return summary
 
-def create_meet_from_text(text, sender_id, client):
+def create_meet_from_text(text, sender_id, client, respond):
     error = False
     users, sender = get_users_from_text(text, sender_id, client)
 
@@ -222,5 +261,6 @@ def create_meet_from_text(text, sender_id, client):
     timeZone = "Africa/Abidjan"
     summary = get_summary_from_text(text)
     meet_info = MeetInfo(summary, sender, users, start_date_utc, end_date_utc, timeZone)
-    send_meet_invites(meet_info)
+    event_link = send_meet_invites(meet_info)
 
+    respond("Hello <@{}>, your event link is {}".format(sender.id, event_link))
