@@ -48,40 +48,37 @@ def send_meet_invites(meet_info):
     endTime = meet_info.end_date_utc
     
     for user in users:
-        attendees.append({'email': user.email})
-
-    print(meet_info.summary, dateTime, timeZone, endTime, attendees)
+        attendees.append({EMAIL_KEY: user.email})
 
     event = {
-        'summary': meet_info.summary,
-        'start': {
-            'dateTime': dateTime,
-            'timeZone': timeZone
+        SUMMARY_KEY: meet_info.summary,
+        START_KEY: {
+            DATE_TIME_KEY: dateTime,
+            TIME_ZONE_KEY: timeZone
         },
-        'end': {
-            'dateTime': endTime,
-            'timeZone': timeZone
+        END_KEY: {
+            DATE_TIME_KEY: endTime,
+            TIME_ZONE_KEY: timeZone
         },
-        'attendees': attendees,
-        'reminders': {
-            'useDefault': False,
-            'overrides': [
-                {'method': 'email', 'minutes': 24 * 60},
-                {'method': 'popup', 'minutes': 10}
+        ATTENDEES_KEY: attendees,
+        REMINDERS_KEY: {
+            USE_DEFAULT_KEY: False,
+            OVERRIDES_KEY: [
+                {METHOD_KEY: EMAIL_KEY, MINUTES_KEY: 24 * 60},
+                {METHOD_KEY: POPUP_KEY, MINUTES_KEY: 10}
             ]
         },
-        "conferenceData": {
-            "createRequest": {
-                "requestId": generate_random_string(), "conferenceSolutionKey": {"type": "hangoutsMeet"}
+        CONFERENCE_DATA_KEY: {
+            CREATE_REQUEST_KEY: {
+                REQUEST_ID_KEY: generate_random_string(), CONFERENCE_SOLUTION_KEY: {TYPE_KEY: HANGOUTS_MEET}
             }
         }
     }
 
 
     event = service.events().insert(calendarId='primary', sendNotifications = True, sendUpdates="all", supportsAttachments = True, body=event, conferenceDataVersion=1).execute()
-    print('Event created: %s' % (event.get('htmlLink')))
 
-    return event.get('htmlLink')
+    return event.get(HTML_LINK_KEY)
 
 
 def get_users_info(client, sender_id, user_ids):
@@ -90,33 +87,31 @@ def get_users_info(client, sender_id, user_ids):
     try:
         for user_id in user_ids:
             try:
-                user = client.users_info(user = user_id)['user']
-                user_obj = User(user["profile"]["email"], user["tz"], user['name'], user_id)
+                user = client.users_info(user = user_id)[USER_KEY]
+                user_obj = User(user[PROFILE_KEY][EMAIL_KEY], user[TZ_KEY], user[NAME_KEY], user_id)
                 users.append(user_obj)
 
-                if user["id"] == sender_id:
+                if user[ID_KEY] == sender_id:
                     sender = user_obj
             except Exception as e:
                 print(e)
 
     except Exception as e:
         print("Get user info threw exception {}".format(e))
-    print(users)
-    # send_meet_invites(users, sender)
 
     return users, sender
 
 def get_all_users_in_channel(client, channel_id):
     user_ids = []
     response = client.conversations_members(channel = channel_id)
-    user_ids.extend(response['members'])
+    user_ids.extend(response[MEMBERS_KEY])
 
-    next_cursor = response['response_metadata']['next_cursor']
+    next_cursor = response[RESPONSE_METADATA_KEY][NEXT_CURSOR_KEY]
 
     while next_cursor:
         response = client.conversations_members(channel = next_cursor)
-        user_ids.extend(response['members'])
-        next_cursor = response['response_metadata']['next_cursor']
+        user_ids.extend(response[MEMBERS_KEY])
+        next_cursor = response[RESPONSE_METADATA_KEY][NEXT_CURSOR_KEY]
 
     return user_ids
 
@@ -166,7 +161,6 @@ def format_date(date):
     return formatted_date
 
 def get_end_time(date, time, length_of_meet):
-    print(date, time, "end")
     end_time = datetime.strptime("{}T{}".format(date, time), date_time_format) + timedelta(hours = length_of_meet)
     end_time = end_time.strftime(date_time_format)
     return end_time
@@ -213,12 +207,8 @@ def get_date_time_from_text(text):
 
     if not date:
         date = format_date(dates[0]) if dates else get_today_date()
-    # date = format_date(date)
    
     time = format_time(times[0]) if times else get_one_hour_after()
-    # time = format_time(time)
-
-    print("start", dates, times, date, time, get_today_date(), get_one_hour_after())
 
     return date, time
 
@@ -239,13 +229,11 @@ def get_time_zone_from_text(text):
     tz_regex = r'tz=(\w+)'
     timeZones = re.findall(tz_regex, text)
 
-    # timeZone = timeZones[0] if timeZones else default timezone
-
     return timeZone
 
 def get_time_in_utc(time_):
     local_tz = tz.tzlocal()
-    utc_tz = ZoneInfo("UTC")
+    utc_tz = ZoneInfo(UTC)
     time_ = datetime.strptime(time_, date_time_format)
     time_ = time_.replace(tzinfo = local_tz)
     time_utc = time_.astimezone(utc_tz)
@@ -256,8 +244,8 @@ def get_summary_from_text(text):
     summary_regex = 's="(.*?)"'
     summaries = re.search(summary_regex, text)
 
-    summary = summaries.group(1) if summaries else "Meeting"
-    print(summary)
+    summary = summaries.group(1) if summaries else MEETING
+
     return summary
 
 def create_meet_from_text(text, sender_id, client, respond, channel_id):
@@ -265,10 +253,8 @@ def create_meet_from_text(text, sender_id, client, respond, channel_id):
     users, sender = get_users_from_text(text, sender_id, client, channel_id)
 
     date, time = get_date_time_from_text(text)
-    # handle case of date or time to be empty
 
     length_of_meet = get_length_from_text(text)
-    # Handle empty length
 
     error = not date or not time or not length_of_meet
 
@@ -278,7 +264,7 @@ def create_meet_from_text(text, sender_id, client, respond, channel_id):
     end_time = get_end_time(date, time, length_of_meet)
 
     start_date_utc, end_date_utc = get_time_in_utc("{}T{}".format(date, time)), get_time_in_utc(end_time)
-    timeZone = "Africa/Abidjan"
+    timeZone = DEFAULT_TIME_ZONE
     summary = get_summary_from_text(text)
     meet_info = MeetInfo(summary, sender, users, start_date_utc, end_date_utc, timeZone)
     event_link = send_meet_invites(meet_info)

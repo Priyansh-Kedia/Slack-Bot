@@ -8,8 +8,6 @@ from utils import create_meet_from_text
 
 app = App()
 
-# Add functionality here
-
 @app.event('url_verification')
 def verify(event):
     challenge = event["challenge"]
@@ -38,4 +36,4 @@ def create(ack, respond, command):
     respond("Event will be created shortly!")
 
 if __name__ == "__main__":
-    app.start(3000)  # POST http://localhost:3000/slack/events
+    app.start(3000) 
